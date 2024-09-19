@@ -60,7 +60,7 @@ function elt(type, props, ...children) {
 //4.PictureCanvas Class Component
 const scale = 10; // Scale factor for each pixel
 
-class PictureCanvas {  
+var PictureCanvas=class PictureCanvas {  
   constructor(picture, pointerDown) {   //The Picture object to display and Callback function for pointer down events
     this.dom = elt("canvas", {
       onmousedown: event => this.mouse(event, pointerDown),           // Create the canvas element and attach event handlers for mouse and touch events
@@ -76,9 +76,23 @@ class PictureCanvas {
     this.picture = picture;
     drawPicture(this.picture, this.dom, scale);    // Draw the new picture on the canvas   
   }
+}
 
-//4.1.Handles mouse events on the canvas.
-  mouse(downEvent, onDown) {                 // parameters: downEvent -The mousedown event object & onDown - Callback function for when the mouse is pressed.
+//4.1.Draws the picture on the canvas.
+function drawPicture(picture, canvas, scale) {           // Set the canvas size based on picture dimensions and scale
+  canvas.width = picture.width * scale;
+  canvas.height = picture.height * scale;
+  let cx = canvas.getContext("2d");                      // Draw each pixel as a colored square on the canvas
+  for (let y = 0; y < picture.height; y++) {
+    for (let x = 0; x < picture.width; x++) {
+      cx.fillStyle = picture.pixel(x, y);
+      cx.fillRect(x * scale, y * scale, scale, scale);
+    }
+  }
+}
+
+//4.2.Handles mouse events on the canvas.
+  PictureCanvas.prototype.mouse=function(downEvent, onDown) {                 // parameters: downEvent -The mousedown event object & onDown - Callback function for when the mouse is pressed.
     if (downEvent.button !== 0) return;           // Ensure that only the left mouse button is handled
 
     let pos = pointerPosition(downEvent, this.dom);      // Calculate the position of the pointer in picture coordinates
@@ -98,43 +112,8 @@ class PictureCanvas {
     this.dom.addEventListener("mousemove", move);
   }
 
-  
-//4.2.Handles touch events on the canvas.
-   touch(startEvent, onDown) {
-    let pos = pointerPosition(startEvent.touches[0], this.dom); // Calculate the position of the touch in picture coordinates    
-    let onMove = onDown(pos); // Call the callback to handle touch start action
-    startEvent.preventDefault(); // Prevent default touch actions such as panning
 
-    if (!onMove) return; // If no callback is returned, exit
-    let move = moveEvent => {                 // Define a function to handle touch movements
-      let newPos = pointerPosition(moveEvent.touches[0], this.dom);
-      if (newPos.x === pos.x && newPos.y === pos.y) return;
-      pos = newPos;
-      onMove(newPos);
-    };
-    let end = () => {                                    // Define a function to stop tracking touch movements
-      this.dom.removeEventListener("touchmove", move);       
-      this.dom.removeEventListener("touchend", end);
-    };
-    this.dom.addEventListener("touchmove", move);            // Add event listeners for touch movements and touch end
-    this.dom.addEventListener("touchend", end);
-  }
-}
-
-//4.3.Draws the picture on the canvas.
-function drawPicture(picture, canvas, scale) {           // Set the canvas size based on picture dimensions and scale
-  canvas.width = picture.width * scale;
-  canvas.height = picture.height * scale;
-  let cx = canvas.getContext("2d");                      // Draw each pixel as a colored square on the canvas
-  for (let y = 0; y < picture.height; y++) {
-    for (let x = 0; x < picture.width; x++) {
-      cx.fillStyle = picture.pixel(x, y);
-      cx.fillRect(x * scale, y * scale, scale, scale);
-    }
-  }
-}
-
-//4.4Converts pointer (mouse or touch) coordinates to canvas coordinates.
+//4.3.Converts pointer (mouse or touch) coordinates to canvas coordinates.
 function pointerPosition(pos, domNode) {
   let rect = domNode.getBoundingClientRect();
   return {
@@ -143,9 +122,31 @@ function pointerPosition(pos, domNode) {
   };
 }
 
+  
+//4.2.Handles touch events on the canvas.
+PictureCanvas.prototype.touch = function(startEvent,
+  onDown) {
+    let pos = pointerPosition(startEvent.touches[0], this.dom);
+    let onMove = onDown(pos);
+    startEvent.preventDefault();
+    if (!onMove) return;
+    let move = moveEvent => {
+      let newPos = pointerPosition(moveEvent.touches[0],this.dom);
+      if (newPos.x == pos.x && newPos.y == pos.y) return;
+      pos = newPos;
+      onMove(newPos);
+};
+let end = () => {
+  this.dom.removeEventListener("touchmove", move);
+  this.dom.removeEventListener("touchend", end);
+};
+this.dom.addEventListener("touchmove", move);
+this.dom.addEventListener("touchend", end);
+};
+
 
 //5.pixelEditor Component-THis is the main component that acts as shell around pictureCanvas and controls
-class PixelEditor {
+var PixelEditor=class PixelEditor {
     constructor(state, config) {
       let {tools, controls, dispatch} = config; // Destructure the configuration object
       this.state = state; // Store the initial application state
@@ -181,7 +182,7 @@ class PixelEditor {
 
 
 //6.ToolSelect Class;- This control allows user to elect different tools to interact with picture
-class ToolSelect {
+var ToolSelect=class ToolSelect {
     constructor(state, {tools, dispatch}) {
       // Create a <select> element with an option for each tool
       this.select = elt("select", {
@@ -201,7 +202,7 @@ class ToolSelect {
   
 
 //7.ColorSelect Class:- This controls allow user to select a color using a color picker input
-class ColorSelect {
+var ColorSelect=class ColorSelect {
     constructor(state, {dispatch}) {
       // Create a color input element
       this.input = elt("input", {
@@ -263,7 +264,7 @@ function rectangle(start, state, dispatch) {
   
 
 //10.Flood fill tool
-const around = [{dx: -1, dy: 0}, {dx: 1, dy: 0}, {dx: 0, dy: -1}, {dx: 0, dy: 1}];
+var around = [{dx: -1, dy: 0}, {dx: 1, dy: 0}, {dx: 0, dy: -1}, {dx: 0, dy: 1}];
 
 function fill({x, y}, state, dispatch) {
   // Get the color of the pixel where the user clicked
@@ -291,12 +292,17 @@ function fill({x, y}, state, dispatch) {
   dispatch({picture: state.picture.draw(drawn)});
 }
 
+//Pick 
+function pick(pos,state,dispatch) {
+  dispatch({color:state.picture.pixel(pos.x,pos.y)})
+}
+
 
 
 
 //11.Save Functionality
 // SaveButton class: Provides a button to save the current picture as an image file
-class SaveButton {
+var SaveButton=class SaveButton {
     constructor(state) {
       // Store the current picture state for saving
       this.picture = state.picture;
@@ -331,7 +337,7 @@ class SaveButton {
   
 //12.Load Button  functionality
 // LoadButton class: Provides a button to load an existing image file into the application
-  class LoadButton {
+var LoadButton=  class LoadButton {
     constructor(_, { dispatch }) {
       // Create a button element with an "onclick" handler to start the loading process
       this.dom = elt("button", {
@@ -408,3 +414,76 @@ class SaveButton {
     return new Picture(width, height, pixels);
   }
   
+
+
+//16.Undo History Functionality
+function historyUpdateState(state, action) {
+  if (action.undo == true) {                        // If the action is an undo request
+    if (state.done.length == 0) return state;       // If there is no previous history, return the current state
+    return {                                        // Undo the last change by taking the most recent picture from history
+      ...state,
+      picture: state.done[0],                       // Set the picture to the most recent one in the history
+      done: state.done.slice(1),                    // Remove the last entry from the history
+      doneAt: 0                                     // Reset doneAt to allow future changes to be stored again
+    };
+  } 
+  else if (action.picture && state.doneAt < Date.now() - 1000) {      // If the action contains a new picture and it's been more than a second since the last store
+    return {                                                         // Update the state, adding the current picture to history
+      ...state,
+      ...action,                                                      // Include the new picture in the state
+      done: [state.picture, ...state.done],                          // Add the current picture to the history
+      doneAt: Date.now()                                            // Record the current time for the next change
+    };
+  } 
+  else {                                               // For other actions, just update the state without modifying the history
+    return { ...state, ...action };
+  }
+}
+
+// UndoButton class: Provides a button to undo the last change
+var UndoButton=class UndoButton {
+  constructor(state, { dispatch }) {                     // Create a button element that dispatches an undo action when clicked
+    this.dom = elt("button", {
+      onclick: () => dispatch({ undo: true }),           // Dispatch undo action
+      disabled: state.done.length == 0                   // Disable the button if there's no history to undo
+    }, "⮪ Undo"); 
+  }
+// Method to synchronize the button state
+  syncState(state) {
+    this.dom.disabled = state.done.length == 0;           
+  }
+}
+
+
+
+
+//17.Drawing Finally
+//To set up the application, we need to create a state, a set of tools, a set of controls, and a dispatch function. We can pass them to the PixelEditor constructor to create the main component. 
+var startState = {
+  tool: "draw",                
+  color: "#000000",            
+  picture: Picture.empty(60, 30, "#f0f0f0"), 
+  done: [],                    
+  doneAt: 0                    
+};
+
+var baseTools = {draw, fill, rectangle, pick};
+
+var baseControls = [
+  ToolSelect, ColorSelect, SaveButton, LoadButton, UndoButton
+];
+
+function startPixelEditor({state = startState,
+  tools = baseTools,
+  controls = baseControls}) {
+let app = new PixelEditor(state, {
+  tools,
+  controls,
+  dispatch(action) {
+    state = historyUpdateState(state, action);
+    app.syncState(state);
+  }
+});
+return app.dom;
+}
+
